@@ -49,7 +49,7 @@ export function RpcPanel({
       defaultCollapsed={true}
     >
       <div className="flex flex-col gap-2">
-        <div className="text-xs text-gray-500 mt-2">Method Name</div>
+        <div className="text-xs text-gray-500 mt-2">Функция</div>
         <input
           type="text"
           value={rpcMethod}
@@ -58,7 +58,7 @@ export function RpcPanel({
           placeholder="my_method"
         />
 
-        <div className="text-xs text-gray-500 mt-2">Payload</div>
+        <div className="text-xs text-gray-500 mt-2">Значение</div>
         <textarea
           value={rpcPayload}
           onChange={(e) => setRpcPayload(e.target.value)}
@@ -76,7 +76,7 @@ export function RpcPanel({
           {isLoading ? (
             <>
               <LoadingSVG diameter={12} strokeWidth={2} />
-              Performing RPC...
+              Performing...
             </>
           ) : (
             "Perform RPC"
