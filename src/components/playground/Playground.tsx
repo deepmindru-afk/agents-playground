@@ -131,14 +131,14 @@ export default function Playground({
 
     const disconnectedContent = (
       <div className="flex items-center justify-center text-gray-700 text-center w-full h-full">
-        No agent video track. Connect to get started.
+        Нет видео агента...
       </div>
     );
 
     const loadingContent = (
       <div className="flex flex-col items-center justify-center gap-2 text-gray-700 text-center h-full w-full">
         <LoadingSVG />
-        Waiting for agent video track…
+        Ожидание видео агента…
       </div>
     );
 
@@ -180,7 +180,7 @@ export default function Playground({
   const audioTileContent = useMemo(() => {
     const disconnectedContent = (
       <div className="flex flex-col items-center justify-center gap-2 text-gray-700 text-center w-full">
-        No agent audio track. Connect to get started.
+        Агент не передает аудио, подключитесь.
       </div>
     );
 
@@ -342,14 +342,14 @@ export default function Playground({
                 />
               )}
             <p className="text-xs text-gray-500 text-right">
-              Set an agent name to use{" "}
+              Имя агента{" "}
               <a
                 href="https://docs.livekit.io/agents/server/agent-dispatch/#explicit"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 hover:text-gray-300 underline"
               >
-                explicit dispatch
+                для подключения
               </a>
               .
             </p>
@@ -450,7 +450,7 @@ export default function Playground({
                 </div>
               ) : (
                 <div className="flex items-center justify-center text-gray-700 text-center w-full h-full">
-                  Press the button above to share your screen.
+                  Нажмите кнопку.
                 </div>
               )}
             </ConfigurationPanelItem>
