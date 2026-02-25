@@ -12,7 +12,7 @@ type SettingValue = {
 
 const settingsDropdown: SettingValue[] = [
   {
-    title: "Show chat",
+    title: "Чат",
     type: "chat",
     key: "N/A",
   },
@@ -22,12 +22,12 @@ const settingsDropdown: SettingValue[] = [
     key: "separator_1",
   },
   {
-    title: "Show video",
+    title: "Видео",
     type: "outputs",
     key: "video",
   },
   {
-    title: "Show audio",
+    title: "Аудио",
     type: "outputs",
     key: "audio",
   },
@@ -38,17 +38,17 @@ const settingsDropdown: SettingValue[] = [
     key: "separator_2",
   },
   {
-    title: "Enable camera",
+    title: "Камера",
     type: "inputs",
     key: "camera",
   },
   {
-    title: "Enable mic",
+    title: "Микрофон",
     type: "inputs",
     key: "mic",
   },
   {
-    title: "Allow screenshare",
+    title: "Экран",
     type: "inputs",
     key: "screen",
   },
