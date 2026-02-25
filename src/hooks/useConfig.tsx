@@ -60,7 +60,7 @@ const defaultConfig: AppConfig = {
       camera: true,
       screen: true,
       mic: true,
-      sip: true,
+      //sip: true,
     },
     outputs: {
       audio: true,
