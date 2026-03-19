@@ -3,25 +3,34 @@
 import { LoadingSVG } from "@/components/button/LoadingSVG";
 import { ChatTile } from "@/components/chat/ChatTile";
 import { ColorPicker } from "@/components/colorPicker/ColorPicker";
+import { AttributesInspector } from "@/components/config/AttributesInspector";
 import { AudioInputTile } from "@/components/config/AudioInputTile";
 import { ConfigurationPanelItem } from "@/components/config/ConfigurationPanelItem";
-import { NameValueRow } from "@/components/config/NameValueRow";
+import {
+  EditableNameValueRow,
+  NameValueRow,
+} from "@/components/config/NameValueRow";
+import { DebugPanel } from "@/components/debug";
 import { PlaygroundHeader } from "@/components/playground/PlaygroundHeader";
 import {
   PlaygroundTab,
   PlaygroundTabbedTile,
   PlaygroundTile,
 } from "@/components/playground/PlaygroundTile";
+import { useRemoteSession } from "@/hooks/useRemoteSession";
 import { useConfig } from "@/hooks/useConfig";
+import { useUplinkLatency } from "@/hooks/useUplinkLatency";
+import { AttributeItem } from "@/lib/types";
+import { PartialMessage } from "@bufbuild/protobuf";
 import {
   BarVisualizer,
-  VideoTrack,
-  useParticipantAttributes,
+  RoomAudioRenderer,
   SessionProvider,
   StartAudio,
-  RoomAudioRenderer,
-  useSession,
+  VideoTrack,
   useAgent,
+  useParticipantAttributes,
+  useSession,
   useSessionMessages,
 } from "@livekit/components-react";
 import {
@@ -30,14 +39,11 @@ import {
   TokenSourceFetchOptions,
   Track,
 } from "livekit-client";
-import { PartialMessage } from "@bufbuild/protobuf";
+import { RoomAgentDispatch } from "livekit-server-sdk";
 import { QRCodeSVG } from "qrcode.react";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import tailwindTheme from "../../lib/tailwindTheme.preval";
-import { EditableNameValueRow } from "@/components/config/NameValueRow";
-import { AttributesInspector } from "@/components/config/AttributesInspector";
 import { RpcPanel } from "./RpcPanel";
-import { RoomAgentDispatch } from "livekit-server-sdk";
 
 export interface PlaygroundMeta {
   name: string;
@@ -70,9 +76,14 @@ export default function Playground({
   const [tokenFetchOptions, setTokenFetchOptions] =
     useState<TokenSourceFetchOptions>();
 
+  // Store attributes as an array with stable IDs to prevent disappearing while editing
+  // Initialize with one empty attribute so the inspector isn't empty on first open
+  const [attributeItems, setAttributeItems] = useState<AttributeItem[]>([
+    { id: `attr_initial_${Date.now()}`, key: "", value: "" },
+  ]);
+
   // initialize token fetch options from initial values, which can come from config
   useEffect(() => {
-    // set initial options only if they haven't been set yet
     if (tokenFetchOptions !== undefined || initialAgentOptions === undefined) {
       return;
     }
@@ -92,6 +103,21 @@ export default function Playground({
   const agent = useAgent(session);
   const messages = useSessionMessages(session);
 
+  const {
+    events: clientEvents,
+    overlappingSpeechEvents,
+    sessionUsage,
+    networkLatency,
+    clearEvents,
+    sendRequest,
+  } = useRemoteSession(session.room);
+
+  const uplinkLatency = useUplinkLatency(
+    session.room,
+    agent.internal.agentParticipant?.identity,
+    sendRequest,
+  );
+
   const localScreenTrack = session.room.localParticipant.getTrackPublication(
     Track.Source.ScreenShare,
   );
@@ -102,7 +128,7 @@ export default function Playground({
     }
     session.start();
     setHasConnected(true);
-  }, [session, session.isConnected]);
+  }, [session]);
 
   useEffect(() => {
     if (autoConnect && !hasConnected) {
@@ -125,6 +151,22 @@ export default function Playground({
     session.room.localParticipant,
     connectionState,
   ]);
+
+  useEffect(() => {
+    if (connectionState === ConnectionState.Disconnected) {
+      clearEvents();
+    }
+  }, [connectionState, clearEvents]);
+
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
+  useEffect(() => {
+    if (connectionState === ConnectionState.Disconnected) {
+      setShowDebugPanel(false);
+    } else if (!showDebugPanel && clientEvents.length > 0) {
+      setShowDebugPanel(true);
+    }
+  }, [connectionState, showDebugPanel, clientEvents.length]);
 
   const videoTileContent = useMemo(() => {
     const videoFitClassName = `object-${config.video_fit || "contain"}`;
@@ -250,6 +292,30 @@ export default function Playground({
     rpcPayload,
     agent.internal.agentParticipant,
   ]);
+
+  const handleAttributesChange = useCallback(
+    (newAttributes: AttributeItem[]) => {
+      // Store the full array with stable IDs to preserve attributes during editing
+      setAttributeItems(newAttributes);
+
+      // Convert to map for tokenFetchOptions, but only include non-empty keys
+      // Duplicates are handled by keeping the last occurrence (later values overwrite earlier ones)
+      const newAttributesMap = newAttributes.reduce(
+        (acc, attr) => {
+          if (attr.key && attr.key.trim() !== "") {
+            acc[attr.key] = attr.value;
+          }
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
+      setTokenFetchOptions((prev) => ({
+        ...prev,
+        participantAttributes: newAttributesMap,
+      }));
+    },
+    [],
+  );
 
   const agentAttributes = useParticipantAttributes({
     participant: agent.internal.agentParticipant ?? undefined,
@@ -393,32 +459,14 @@ export default function Playground({
               editable={connectionState !== ConnectionState.Connected}
             />
             <AttributesInspector
-              attributes={Object.entries(
-                tokenFetchOptions?.participantAttributes || {},
-              ).map(([key, value]) => ({
-                id: key,
-                key,
-                value: value,
-              }))}
-              onAttributesChange={(newAttributes) => {
-                const newAttributesMap = newAttributes.reduce(
-                  (acc, attr) => {
-                    acc[attr.key] = attr.value;
-                    return acc;
-                  },
-                  {} as Record<string, string>,
-                );
-                setTokenFetchOptions({
-                  ...tokenFetchOptions,
-                  participantAttributes: newAttributesMap,
-                });
-              }}
+              attributes={attributeItems}
+              onAttributesChange={handleAttributesChange}
               metadata={tokenFetchOptions?.participantMetadata}
               onMetadataChange={(metadata) => {
-                setTokenFetchOptions({
-                  ...tokenFetchOptions,
+                setTokenFetchOptions((prev) => ({
+                  ...prev,
                   participantMetadata: metadata,
-                });
+                }));
               }}
               themeColor={config.settings.theme_color}
               disabled={false}
@@ -525,6 +573,8 @@ export default function Playground({
     rpcMethod,
     rpcPayload,
     handleRpcCall,
+    handleAttributesChange,
+    attributeItems,
     tokenFetchOptions,
     setTokenFetchOptions,
   ]);
@@ -598,8 +648,8 @@ export default function Playground({
           }}
         />
         <div
-          className={`flex gap-4 py-4 grow w-full selection:bg-${config.settings.theme_color}-900`}
-          style={{ height: `calc(100% - ${headerHeight}px)` }}
+          className={`flex gap-4 py-4 grow w-full overflow-hidden selection:bg-${config.settings.theme_color}-900`}
+          style={{ minHeight: 0 }}
         >
           <div className="flex flex-col grow basis-1/2 gap-4 h-full lg:hidden">
             <PlaygroundTabbedTile
@@ -652,6 +702,18 @@ export default function Playground({
             {settingsTileContent}
           </PlaygroundTile>
         </div>
+        {showDebugPanel && (
+          <DebugPanel
+            userTrack={session.local.microphoneTrack?.publication?.track}
+            agentTrack={agent.microphoneTrack?.publication?.track}
+            events={clientEvents}
+            overlappingSpeechEvents={overlappingSpeechEvents}
+            sessionUsage={sessionUsage}
+            onClearEvents={clearEvents}
+            networkLatency={networkLatency}
+            uplinkLatency={uplinkLatency}
+          />
+        )}
         <RoomAudioRenderer />
         <StartAudio label="Click to enable audio playback" />
       </div>
